@@ -1,0 +1,5 @@
+bin/
+kl-go-cli
+*.exe
+*.test
+.DS_Store
