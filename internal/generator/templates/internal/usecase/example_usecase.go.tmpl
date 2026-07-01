@@ -1,0 +1,34 @@
+package usecase
+
+import (
+	"context"
+
+	"{{.Module}}/internal/domain"
+)
+
+type ExampleUsecase struct {
+	repo domain.ExampleRepository
+}
+
+func NewExampleUsecase(repo domain.ExampleRepository) *ExampleUsecase {
+	return &ExampleUsecase{repo: repo}
+}
+
+func (u *ExampleUsecase) Create(ctx context.Context, name string) (*domain.Example, error) {
+	if name == "" {
+		return nil, domain.ErrInvalid
+	}
+	e := &domain.Example{Name: name}
+	if err := u.repo.Create(ctx, e); err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+func (u *ExampleUsecase) GetByID(ctx context.Context, id string) (*domain.Example, error) {
+	return u.repo.GetByID(ctx, id)
+}
+
+func (u *ExampleUsecase) List(ctx context.Context) ([]*domain.Example, error) {
+	return u.repo.List(ctx)
+}

@@ -1,0 +1,47 @@
+package http
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"{{.Module}}/internal/config"
+	"{{.Module}}/internal/delivery/http/handler"
+	"{{.Module}}/internal/delivery/http/middleware"
+	"{{.Module}}/internal/repository/postgres"
+	"{{.Module}}/internal/usecase"
+)
+
+func NewRouter(cfg *config.Config) *gin.Engine {
+	if cfg.Env == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(middleware.RequestLogger())
+
+	// wiring: repository -> usecase -> handler
+	exampleRepo := postgres.NewInMemoryExampleRepository()
+	exampleUsecase := usecase.NewExampleUsecase(exampleRepo)
+	exampleHandler := handler.NewExampleHandler(exampleUsecase)
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "ok",
+			"service": cfg.ServiceName,
+			"time":    time.Now().Format(time.RFC3339),
+		})
+	})
+
+	v1 := r.Group("/api/v1")
+	{
+		examples := v1.Group("/examples")
+		examples.POST("", exampleHandler.Create)
+		examples.GET("", exampleHandler.List)
+		examples.GET("/:id", exampleHandler.GetByID)
+	}
+
+	return r
+}

@@ -1,0 +1,50 @@
+package postgres
+
+import (
+	"context"
+	"sync"
+
+	"github.com/google/uuid"
+
+	"{{.Module}}/internal/domain"
+)
+
+// InMemoryExampleRepository adalah implementasi sementara biar skeleton langsung
+// bisa dijalankan tanpa setup DB dulu. Ganti isinya dengan query sqlx/gorm ke
+// postgres kalau sudah siap connect ke database beneran.
+type InMemoryExampleRepository struct {
+	mu   sync.RWMutex
+	data map[string]*domain.Example
+}
+
+func NewInMemoryExampleRepository() *InMemoryExampleRepository {
+	return &InMemoryExampleRepository{data: make(map[string]*domain.Example)}
+}
+
+func (r *InMemoryExampleRepository) Create(ctx context.Context, e *domain.Example) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	e.ID = uuid.NewString()
+	r.data[e.ID] = e
+	return nil
+}
+
+func (r *InMemoryExampleRepository) GetByID(ctx context.Context, id string) (*domain.Example, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	e, ok := r.data[id]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	return e, nil
+}
+
+func (r *InMemoryExampleRepository) List(ctx context.Context) ([]*domain.Example, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]*domain.Example, 0, len(r.data))
+	for _, e := range r.data {
+		out = append(out, e)
+	}
+	return out, nil
+}
