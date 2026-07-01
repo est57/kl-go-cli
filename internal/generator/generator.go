@@ -10,7 +10,7 @@ import (
 	"text/template"
 )
 
-//go:embed templates
+//go:embed all:templates
 var templatesFS embed.FS
 
 const templatesRoot = "templates"
