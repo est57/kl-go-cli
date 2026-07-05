@@ -5,6 +5,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+{{if .HasPostgres}}
+	"gorm.io/gorm"
+{{end}}
 
 	"{{.Module}}/internal/config"
 	"{{.Module}}/internal/delivery/http/handler"
@@ -13,7 +16,11 @@ import (
 	"{{.Module}}/internal/usecase"
 )
 
+{{if .HasPostgres}}
+func NewRouter(cfg *config.Config, db *gorm.DB) *gin.Engine {
+{{else}}
 func NewRouter(cfg *config.Config) *gin.Engine {
+{{end}}
 	if cfg.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -23,7 +30,11 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	r.Use(middleware.RequestLogger())
 
 	// wiring: repository -> usecase -> handler
+{{if .HasPostgres}}
+	exampleRepo := postgres.NewExampleRepository(db)
+{{else}}
 	exampleRepo := postgres.NewInMemoryExampleRepository()
+{{end}}
 	exampleUsecase := usecase.NewExampleUsecase(exampleRepo)
 	exampleHandler := handler.NewExampleHandler(exampleUsecase)
 

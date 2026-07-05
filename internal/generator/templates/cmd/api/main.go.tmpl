@@ -11,12 +11,24 @@ import (
 
 	"{{.Module}}/internal/config"
 	httpDelivery "{{.Module}}/internal/delivery/http"
+{{if .HasPostgres}}
+	"{{.Module}}/internal/infrastructure/database"
+{{end}}
 )
 
 func main() {
 	cfg := config.Load()
 
+{{if .HasPostgres}}
+	db, err := database.Connect(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("database error: %v", err)
+	}
+
+	router := httpDelivery.NewRouter(cfg, db)
+{{else}}
 	router := httpDelivery.NewRouter(cfg)
+{{end}}
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,

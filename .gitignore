@@ -1,5 +1,6 @@
 bin/
 kl-go-cli
+gorm-test/
 *.exe
 *.test
 .DS_Store

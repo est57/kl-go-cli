@@ -21,6 +21,11 @@ type Data struct {
 	PackageName string // nama folder/binary, snake/kebab-safe
 	Module      string // go module path, misal github.com/kodelokal/user-service
 	Port        string
+	Database    string // postgres atau none
+}
+
+func (d Data) HasPostgres() bool {
+	return d.Database == "" || d.Database == "postgres"
 }
 
 // GenerateService membuat skeleton microservice baru di outDir.
@@ -42,6 +47,12 @@ func GenerateService(outDir string, data Data) error {
 			return err
 		}
 		rel = strings.TrimSuffix(rel, ".tmpl")
+		if !data.HasPostgres() && isPostgresOnlyTemplate(rel) {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
 		destPath := filepath.Join(outDir, rel)
 
 		if d.IsDir() {
@@ -74,4 +85,20 @@ func GenerateService(outDir string, data Data) error {
 
 		return nil
 	})
+}
+
+func isPostgresOnlyTemplate(rel string) bool {
+	rel = filepath.ToSlash(rel)
+	postgresOnlyPrefixes := []string{
+		"cmd/migrate/",
+		"cmd/seed/",
+		"internal/infrastructure/database/",
+		"migrations/",
+	}
+	for _, prefix := range postgresOnlyPrefixes {
+		if strings.HasPrefix(rel, prefix) {
+			return true
+		}
+	}
+	return false
 }

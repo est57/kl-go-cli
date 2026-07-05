@@ -1,0 +1,173 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+)
+
+const migrationsDir = "migrations"
+
+func main() {
+	if len(os.Args) < 2 {
+		usage()
+		os.Exit(1)
+	}
+
+	var err error
+	switch os.Args[1] {
+	case "up":
+		err = runMigration(func(m *migrate.Migrate) error {
+			return m.Up()
+		})
+	case "down":
+		err = runMigration(func(m *migrate.Migrate) error {
+			return m.Steps(-1)
+		})
+	case "version":
+		err = printVersion()
+	case "create":
+		if len(os.Args) < 3 {
+			err = errors.New("migration name is required")
+			break
+		}
+		err = createMigration(os.Args[2])
+	default:
+		err = fmt.Errorf("unknown command %q", os.Args[1])
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func runMigration(fn func(*migrate.Migrate) error) error {
+	m, err := newMigrator()
+	if err != nil {
+		return err
+	}
+	defer m.Close()
+
+	if err := fn(m); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			log.Println("no migration change")
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func printVersion() error {
+	m, err := newMigrator()
+	if err != nil {
+		return err
+	}
+	defer m.Close()
+
+	version, dirty, err := m.Version()
+	if err != nil {
+		if errors.Is(err, migrate.ErrNilVersion) {
+			log.Println("migration version: none")
+			return nil
+		}
+		return err
+	}
+	log.Printf("migration version: %d dirty=%t", version, dirty)
+	return nil
+}
+
+func newMigrator() (*migrate.Migrate, error) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = "postgres://postgres:postgres@localhost:5432/{{.PackageName}}?sslmode=disable"
+	}
+
+	m, err := migrate.New("file://"+migrationsDir, databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("create migrator: %w", err)
+	}
+	return m, nil
+}
+
+func createMigration(name string) error {
+	slug := slugify(name)
+	if slug == "" {
+		return errors.New("migration name must contain letters or numbers")
+	}
+
+	if err := os.MkdirAll(migrationsDir, 0o755); err != nil {
+		return err
+	}
+
+	next, err := nextMigrationVersion()
+	if err != nil {
+		return err
+	}
+
+	files := []string{
+		filepath.Join(migrationsDir, fmt.Sprintf("%06d_%s.up.sql", next, slug)),
+		filepath.Join(migrationsDir, fmt.Sprintf("%06d_%s.down.sql", next, slug)),
+	}
+	for _, name := range files {
+		f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o644)
+		if err != nil {
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
+		log.Println("created", name)
+	}
+	return nil
+}
+
+func nextMigrationVersion() (int, error) {
+	entries, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 1, nil
+		}
+		return 0, err
+	}
+
+	re := regexp.MustCompile(`^(\d+)_.*\.(up|down)\.sql$`)
+	maxVersion := 0
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		matches := re.FindStringSubmatch(entry.Name())
+		if len(matches) == 0 {
+			continue
+		}
+		version, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return 0, err
+		}
+		if version > maxVersion {
+			maxVersion = version
+		}
+	}
+	return maxVersion + 1, nil
+}
+
+func slugify(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	re := regexp.MustCompile(`[^a-z0-9]+`)
+	name = re.ReplaceAllString(name, "_")
+	return strings.Trim(name, "_")
+}
+
+func usage() {
+	fmt.Println("usage: go run ./cmd/migrate [up|down|version|create <name>]")
+}

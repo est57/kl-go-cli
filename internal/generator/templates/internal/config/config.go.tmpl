@@ -5,7 +5,9 @@ import "os"
 type Config struct {
 	Port        string
 	Env         string
+{{if .HasPostgres}}
 	DatabaseURL string
+{{end}}
 	ServiceName string
 }
 
@@ -13,7 +15,9 @@ func Load() *Config {
 	return &Config{
 		Port:        getEnv("PORT", "{{.Port}}"),
 		Env:         getEnv("APP_ENV", "development"),
+{{if .HasPostgres}}
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/{{.PackageName}}?sslmode=disable"),
+{{end}}
 		ServiceName: "{{.ServiceName}}",
 	}
 }

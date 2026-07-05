@@ -1,4 +1,12 @@
+{{if .HasPostgres}}
+DATABASE_URL ?= postgres://postgres:postgres@localhost:5432/{{.PackageName}}?sslmode=disable
+{{end}}
+
+{{if .HasPostgres}}
+.PHONY: run build test tidy docker-up docker-down migrate-up migrate-down migrate-create seed
+{{else}}
 .PHONY: run build test tidy docker-up docker-down
+{{end}}
 
 run:
 	go run ./cmd/api
@@ -17,3 +25,17 @@ docker-up:
 
 docker-down:
 	docker compose down
+
+{{if .HasPostgres}}
+migrate-up:
+	DATABASE_URL="$(DATABASE_URL)" go run ./cmd/migrate up
+
+migrate-down:
+	DATABASE_URL="$(DATABASE_URL)" go run ./cmd/migrate down
+
+migrate-create:
+	go run ./cmd/migrate create $(name)
+
+seed:
+	DATABASE_URL="$(DATABASE_URL)" go run ./cmd/seed
+{{end}}

@@ -2,16 +2,54 @@ package postgres
 
 import (
 	"context"
+{{if .HasPostgres}}
+	"errors"
+{{else}}
 	"sync"
+{{end}}
 
 	"github.com/google/uuid"
+{{if .HasPostgres}}
+	"gorm.io/gorm"
+{{end}}
 
 	"{{.Module}}/internal/domain"
 )
 
-// InMemoryExampleRepository adalah implementasi sementara biar skeleton langsung
-// bisa dijalankan tanpa setup DB dulu. Ganti isinya dengan query sqlx/gorm ke
-// postgres kalau sudah siap connect ke database beneran.
+{{if .HasPostgres}}
+type ExampleRepository struct {
+	db *gorm.DB
+}
+
+func NewExampleRepository(db *gorm.DB) *ExampleRepository {
+	return &ExampleRepository{db: db}
+}
+
+func (r *ExampleRepository) Create(ctx context.Context, e *domain.Example) error {
+	e.ID = uuid.NewString()
+	return r.db.WithContext(ctx).Create(e).Error
+}
+
+func (r *ExampleRepository) GetByID(ctx context.Context, id string) (*domain.Example, error) {
+	var e domain.Example
+	err := r.db.WithContext(ctx).First(&e, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &e, nil
+}
+
+func (r *ExampleRepository) List(ctx context.Context) ([]*domain.Example, error) {
+	var list []*domain.Example
+	if err := r.db.WithContext(ctx).Order("created_at desc").Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+{{else}}
 type InMemoryExampleRepository struct {
 	mu   sync.RWMutex
 	data map[string]*domain.Example
@@ -24,6 +62,7 @@ func NewInMemoryExampleRepository() *InMemoryExampleRepository {
 func (r *InMemoryExampleRepository) Create(ctx context.Context, e *domain.Example) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	e.ID = uuid.NewString()
 	r.data[e.ID] = e
 	return nil
@@ -32,6 +71,7 @@ func (r *InMemoryExampleRepository) Create(ctx context.Context, e *domain.Exampl
 func (r *InMemoryExampleRepository) GetByID(ctx context.Context, id string) (*domain.Example, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
 	e, ok := r.data[id]
 	if !ok {
 		return nil, domain.ErrNotFound
@@ -42,9 +82,11 @@ func (r *InMemoryExampleRepository) GetByID(ctx context.Context, id string) (*do
 func (r *InMemoryExampleRepository) List(ctx context.Context) ([]*domain.Example, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
 	out := make([]*domain.Example, 0, len(r.data))
 	for _, e := range r.data {
 		out = append(out, e)
 	}
 	return out, nil
 }
+{{end}}

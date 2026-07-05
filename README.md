@@ -1,6 +1,6 @@
 # kl-go-cli
 
-CLI untuk scaffold Go microservice dengan clean architecture (domain → usecase → delivery/repository), siap dipakai buat REST API berbasis Gin.
+CLI untuk scaffold Go microservice dengan clean architecture (domain → usecase → delivery/repository), siap dipakai buat REST API berbasis Gin dengan opsi Gorm/Postgres dan SQL migration.
 
 ## Install
 
@@ -26,13 +26,15 @@ kl-go-cli new
 
 **Mode langsung** (satu baris, cocok buat scripting/CI):
 \`\`\`bash
-kl-go-cli new order-service -module=github.com/tribina/order-service -port=8081 -tidy -git
+kl-go-cli new order-service -module=github.com/kodelokal/order-service -port=8081 -tidy -git
+kl-go-cli new simple-service -db=none
 \`\`\`
 
 | Flag | Fungsi | Default |
 |---|---|---|
 | `-module` | go module path | `github.com/kodelokal/<nama-service>` |
 | `-port` | port default service | `8080` |
+| `-db` | database scaffold (`postgres` atau `none`) | `postgres` |
 | `-out` | nama folder output | sama dengan nama service |
 | `-tidy` | otomatis jalanin `go mod tidy` setelah generate | off |
 | `-git` | otomatis `git init` + commit pertama setelah generate | off |
@@ -43,5 +45,4 @@ Bantuan: `kl-go-cli -h`
 ## Roadmap
 
 - [ ] `kl-go-cli add handler <name>` — nambah resource baru ke service yang sudah ada
-- [ ] Generator repository postgres beneran (sqlx + migration), bukan in-memory
 - [ ] Opsi `-transport=grpc`

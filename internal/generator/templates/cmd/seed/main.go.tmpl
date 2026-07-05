@@ -1,0 +1,35 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"gorm.io/gorm/clause"
+
+	"{{.Module}}/internal/domain"
+	"{{.Module}}/internal/infrastructure/database"
+)
+
+func main() {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = "postgres://postgres:postgres@localhost:5432/{{.PackageName}}?sslmode=disable"
+	}
+
+	db, err := database.Connect(databaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	examples := []domain.Example{
+		{ID: "00000000-0000-0000-0000-000000000001", Name: "First example"},
+		{ID: "00000000-0000-0000-0000-000000000002", Name: "Second example"},
+	}
+
+	if err := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&examples).Error; err != nil {
+		log.Fatal(fmt.Errorf("seed examples: %w", err))
+	}
+
+	log.Printf("seeded %d example rows", len(examples))
+}

@@ -9,10 +9,14 @@ services:
     environment:
       - PORT={{.Port}}
       - APP_ENV=development
+{{if .HasPostgres}}
       - DATABASE_URL=postgres://postgres:postgres@db:5432/{{.PackageName}}?sslmode=disable
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+{{end}}
 
+{{if .HasPostgres}}
   db:
     image: postgres:16-alpine
     environment:
@@ -23,6 +27,12 @@ services:
       - "5432:5432"
     volumes:
       - {{.PackageName}}_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d {{.PackageName}}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   {{.PackageName}}_pgdata:
+{{end}}

@@ -26,6 +26,7 @@ Kalau service-name gak diisi, kl-go-cli akan tanya interaktif.
 Flags:
   -module string   go module path (default: github.com/kodelokal/<service-name>)
   -port string     port default service (default: "8080")
+  -db string       database scaffold: postgres atau none (default: "postgres")
   -out string      output directory (default: nama service)
   -tidy            otomatis jalanin "go mod tidy" setelah generate
   -git             otomatis "git init" + commit pertama setelah generate
@@ -34,6 +35,7 @@ Contoh:
   kl-go-cli new
   kl-go-cli new user-service
   kl-go-cli new order-service -module=github.com/tribina/order-service -port=8081 -tidy -git
+  kl-go-cli new simple-service -db=none
 `
 
 func main() {
@@ -61,6 +63,7 @@ func runNew(args []string) {
 	fs := flag.NewFlagSet("new", flag.ExitOnError)
 	module := fs.String("module", "", "go module path")
 	port := fs.String("port", "8080", "default service port")
+	db := fs.String("db", "postgres", "database scaffold: postgres atau none")
 	out := fs.String("out", "", "output directory")
 	tidy := fs.Bool("tidy", false, "run go mod tidy after generate")
 	initGit := fs.Bool("git", false, "run git init + first commit after generate")
@@ -102,6 +105,14 @@ func runNew(args []string) {
 		*port = prompt(reader, "Port default [8080]: ", "8080")
 	}
 
+	if !explicit["db"] && interactive {
+		*db = prompt(reader, "Database [postgres|none]: ", "postgres")
+	}
+	if !validDatabase(*db) {
+		fmt.Fprintln(os.Stderr, "error: -db cuma boleh postgres atau none")
+		os.Exit(1)
+	}
+
 	if *out == "" {
 		*out = serviceName
 	}
@@ -113,6 +124,7 @@ func runNew(args []string) {
 		PackageName: pkgName,
 		Module:      *module,
 		Port:        *port,
+		Database:    *db,
 	}
 
 	if err := generator.GenerateService(*out, data); err != nil {
@@ -185,4 +197,8 @@ func validServiceName(s string) bool {
 
 func toPackageName(s string) string {
 	return strings.ReplaceAll(s, "-", "_")
+}
+
+func validDatabase(s string) bool {
+	return s == "postgres" || s == "none"
 }

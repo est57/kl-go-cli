@@ -13,9 +13,9 @@ var (
 
 // Example is a placeholder entity. Rename/extend sesuai domain service kamu.
 type Example struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string    `json:"id"{{if .HasPostgres}} gorm:"type:uuid;primaryKey"{{end}}`
+	Name      string    `json:"name"{{if .HasPostgres}} gorm:"not null"{{end}}`
+	CreatedAt time.Time `json:"created_at"{{if .HasPostgres}} gorm:"autoCreateTime"{{end}}`
 }
 
 // ExampleRepository adalah kontrak akses data.
