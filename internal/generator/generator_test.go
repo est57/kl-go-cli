@@ -165,6 +165,44 @@ func TestGenerateServiceWithGRPCTransportProducesCompilableProject(t *testing.T)
 	runGeneratedCommand(t, outDir, "go", "test", "./...")
 }
 
+func TestAddHTTPHandlerProducesCompilableFiles(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "handler-service")
+	data := Data{
+		ServiceName: "handler-service",
+		PackageName: "handler_service",
+		Module:      "github.com/example/handler-service",
+		Port:        "8084",
+		Database:    "none",
+		Transport:   "http",
+	}
+
+	if err := GenerateService(outDir, data); err != nil {
+		t.Fatalf("GenerateService() error = %v", err)
+	}
+	resource, err := AddHTTPHandler(outDir, "customer")
+	if err != nil {
+		t.Fatalf("AddHTTPHandler() error = %v", err)
+	}
+	if resource.Type != "Customer" {
+		t.Fatalf("resource type = %q, want Customer", resource.Type)
+	}
+
+	requiredFiles := []string{
+		"internal/domain/customer.go",
+		"internal/usecase/customer_usecase.go",
+		"internal/repository/postgres/customer_repo.go",
+		"internal/delivery/http/handler/customer_handler.go",
+	}
+	for _, name := range requiredFiles {
+		if _, err := os.Stat(filepath.Join(outDir, name)); err != nil {
+			t.Fatalf("generated file %q missing: %v", name, err)
+		}
+	}
+
+	runGeneratedCommand(t, outDir, "go", "mod", "tidy")
+	runGeneratedCommand(t, outDir, "go", "test", "./...")
+}
+
 func TestGenerateServiceRefusesExistingDirectory(t *testing.T) {
 	outDir := t.TempDir()
 	err := GenerateService(outDir, Data{

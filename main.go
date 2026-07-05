@@ -18,6 +18,7 @@ const usage = `kl-go-cli - scaffold Go microservice dengan clean architecture
 
 Usage:
   kl-go-cli new [service-name] [flags]
+  kl-go-cli add handler <resource-name>
   kl-go-cli -h | --help
   kl-go-cli -v | --version
 
@@ -39,6 +40,7 @@ Contoh:
   kl-go-cli new order-service -module=github.com/tribina/order-service -port=8081 -tidy -git
   kl-go-cli new simple-service -db=none
   kl-go-cli new inventory-service -transport=both -grpc-port=9091
+  kl-go-cli add handler customer
 `
 
 func main() {
@@ -56,10 +58,47 @@ func main() {
 		return
 	case "new":
 		runNew(os.Args[2:])
+	case "add":
+		runAdd(os.Args[2:])
 	default:
 		fmt.Print(usage)
 		os.Exit(1)
 	}
+}
+
+func runAdd(args []string) {
+	if len(args) < 2 || args[0] != "handler" {
+		fmt.Print(usage)
+		os.Exit(1)
+	}
+
+	resourceName := args[1]
+	data, err := generator.AddHTTPHandler(".", resourceName)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("\nHandler %q berhasil ditambahkan.\n", resourceName)
+	fmt.Println("\nTambahkan wiring ini di internal/delivery/http/router.go:")
+	if data.HasPostgres {
+		fmt.Printf(`  %sRepo := postgres.New%sRepository(db)
+  %sUsecase := usecase.New%sUsecase(%sRepo)
+  %sHandler := handler.New%sHandler(%sUsecase)
+
+`, data.Package, data.Type, data.Package, data.Type, data.Package, data.Package, data.Type, data.Package)
+	} else {
+		fmt.Printf(`  %sRepo := postgres.NewInMemory%sRepository()
+  %sUsecase := usecase.New%sUsecase(%sRepo)
+  %sHandler := handler.New%sHandler(%sUsecase)
+
+`, data.Package, data.Type, data.Package, data.Type, data.Package, data.Package, data.Type, data.Package)
+	}
+	fmt.Printf(`  %s := v1.Group("/%s")
+  %s.POST("", %sHandler.Create)
+  %s.GET("", %sHandler.List)
+  %s.GET("/:id", %sHandler.GetByID)
+`, data.RouteName, data.RouteName, data.RouteName, data.Package, data.RouteName, data.Package, data.RouteName, data.Package)
 }
 
 func runNew(args []string) {

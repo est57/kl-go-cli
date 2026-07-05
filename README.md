@@ -50,6 +50,7 @@ Yang dibuat otomatis:
 - env config loader
 - Dockerfile dan docker-compose
 - Makefile untuk command umum
+- command untuk menambah skeleton HTTP handler baru
 
 ## Contoh Command
 
@@ -75,6 +76,13 @@ HTTP + gRPC dalam satu service:
 
 ```bash
 kl-go-cli new payment-service -transport=both -port=8080 -grpc-port=9090 -db=postgres -tidy
+```
+
+Tambah skeleton resource HTTP di service yang sudah dibuat:
+
+```bash
+cd payment-service
+kl-go-cli add handler customer
 ```
 
 ## Contoh Terminal Demo
@@ -125,6 +133,27 @@ payment-service/
 Untuk `-db=none`, folder database, migration, migrate command, dan seed command tidak dibuat.
 
 Untuk `-transport=grpc`, folder HTTP tidak dibuat.
+
+## Menambah Handler Baru
+
+Jalankan command ini dari root project hasil generate:
+
+```bash
+kl-go-cli add handler customer
+```
+
+Command ini membuat file:
+
+```text
+internal/domain/customer.go
+internal/usecase/customer_usecase.go
+internal/repository/postgres/customer_repo.go
+internal/delivery/http/handler/customer_handler.go
+```
+
+Setelah file dibuat, CLI akan menampilkan snippet wiring untuk ditambahkan ke `internal/delivery/http/router.go`.
+
+Catatan: untuk saat ini wiring router masih manual agar `kl-go-cli` tidak menimpa perubahan custom di router project kamu.
 
 ## Kapan Pakai Flag Tertentu?
 
@@ -189,6 +218,6 @@ Kurang cocok untuk:
 
 ## Roadmap
 
-- [ ] `kl-go-cli add handler <name>` untuk menambah resource baru ke service yang sudah ada
+- [ ] Auto-wiring route untuk `kl-go-cli add handler <name>`
 - [ ] Generate custom gRPC service/proto untuk resource baru
 - [ ] Template auth/JWT opsional
