@@ -5,9 +5,19 @@ services:
       context: .
       dockerfile: deployments/Dockerfile
     ports:
+{{if .HasHTTP}}
       - "{{.Port}}:{{.Port}}"
+{{end}}
+{{if .HasGRPC}}
+      - "{{.GRPCPort}}:{{.GRPCPort}}"
+{{end}}
     environment:
+{{if .HasHTTP}}
       - PORT={{.Port}}
+{{end}}
+{{if .HasGRPC}}
+      - GRPC_PORT={{.GRPCPort}}
+{{end}}
       - APP_ENV=development
 {{if .HasPostgres}}
       - DATABASE_URL=postgres://postgres:postgres@db:5432/{{.PackageName}}?sslmode=disable

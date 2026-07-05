@@ -9,5 +9,6 @@ FROM alpine:3.19
 RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /root/
 COPY --from=builder /bin/{{.PackageName}} .
-EXPOSE {{.Port}}
+{{if .HasHTTP}}EXPOSE {{.Port}}{{end}}
+{{if .HasGRPC}}EXPOSE {{.GRPCPort}}{{end}}
 CMD ["./{{.PackageName}}"]

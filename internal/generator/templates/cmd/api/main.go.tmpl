@@ -3,22 +3,33 @@ package main
 import (
 	"context"
 	"log"
+{{if .HasGRPC}}
+	"net"
+{{end}}
+{{if .HasHTTP}}
 	"net/http"
+{{end}}
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"{{.Module}}/internal/config"
-	httpDelivery "{{.Module}}/internal/delivery/http"
-{{if .HasPostgres}}
-	"{{.Module}}/internal/infrastructure/database"
+{{if .HasGRPC}}
+	grpcDelivery "{{.Module}}/internal/delivery/grpc"
 {{end}}
+{{if .HasHTTP}}
+	httpDelivery "{{.Module}}/internal/delivery/http"
+{{end}}
+{{if .HasHTTP}}{{if .HasPostgres}}
+	"{{.Module}}/internal/infrastructure/database"
+{{end}}{{end}}
 )
 
 func main() {
 	cfg := config.Load()
 
+{{if .HasHTTP}}
 {{if .HasPostgres}}
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
@@ -39,11 +50,27 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("[{{.ServiceName}}] listening on :%s", cfg.Port)
+		log.Printf("[{{.ServiceName}}] HTTP listening on :%s", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server error: %v", err)
 		}
 	}()
+{{end}}
+
+{{if .HasGRPC}}
+	grpcServer := grpcDelivery.NewServer(cfg)
+	grpcListener, err := net.Listen("tcp", ":"+cfg.GRPCPort)
+	if err != nil {
+		log.Fatalf("gRPC listen error: %v", err)
+	}
+
+	go func() {
+		log.Printf("[{{.ServiceName}}] gRPC listening on :%s", cfg.GRPCPort)
+		if err := grpcServer.Serve(grpcListener); err != nil {
+			log.Fatalf("gRPC server error: %v", err)
+		}
+	}()
+{{end}}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -53,8 +80,24 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+{{if .HasHTTP}}
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatalf("forced shutdown: %v", err)
 	}
+{{end}}
+{{if .HasGRPC}}
+	stopped := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(stopped)
+	}()
+
+	select {
+	case <-stopped:
+	case <-ctx.Done():
+		grpcServer.Stop()
+	}
+{{end}}
+
 	log.Println("server stopped")
 }

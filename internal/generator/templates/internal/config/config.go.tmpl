@@ -4,6 +4,9 @@ import "os"
 
 type Config struct {
 	Port        string
+{{if .HasGRPC}}
+	GRPCPort    string
+{{end}}
 	Env         string
 {{if .HasPostgres}}
 	DatabaseURL string
@@ -14,6 +17,9 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		Port:        getEnv("PORT", "{{.Port}}"),
+{{if .HasGRPC}}
+		GRPCPort:    getEnv("GRPC_PORT", "{{.GRPCPort}}"),
+{{end}}
 		Env:         getEnv("APP_ENV", "development"),
 {{if .HasPostgres}}
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/{{.PackageName}}?sslmode=disable"),

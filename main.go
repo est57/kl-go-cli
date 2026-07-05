@@ -26,6 +26,8 @@ Kalau service-name gak diisi, kl-go-cli akan tanya interaktif.
 Flags:
   -module string   go module path (default: github.com/kodelokal/<service-name>)
   -port string     port default service (default: "8080")
+  -transport string transport scaffold: http, grpc, atau both (default: "http")
+  -grpc-port string port default gRPC service (default: "9090")
   -db string       database scaffold: postgres atau none (default: "postgres")
   -out string      output directory (default: nama service)
   -tidy            otomatis jalanin "go mod tidy" setelah generate
@@ -36,6 +38,7 @@ Contoh:
   kl-go-cli new user-service
   kl-go-cli new order-service -module=github.com/tribina/order-service -port=8081 -tidy -git
   kl-go-cli new simple-service -db=none
+  kl-go-cli new inventory-service -transport=both -grpc-port=9091
 `
 
 func main() {
@@ -63,6 +66,8 @@ func runNew(args []string) {
 	fs := flag.NewFlagSet("new", flag.ExitOnError)
 	module := fs.String("module", "", "go module path")
 	port := fs.String("port", "8080", "default service port")
+	transport := fs.String("transport", "http", "transport scaffold: http, grpc, atau both")
+	grpcPort := fs.String("grpc-port", "9090", "default gRPC service port")
 	db := fs.String("db", "postgres", "database scaffold: postgres atau none")
 	out := fs.String("out", "", "output directory")
 	tidy := fs.Bool("tidy", false, "run go mod tidy after generate")
@@ -105,6 +110,18 @@ func runNew(args []string) {
 		*port = prompt(reader, "Port default [8080]: ", "8080")
 	}
 
+	if !explicit["transport"] && interactive {
+		*transport = prompt(reader, "Transport [http|grpc|both]: ", "http")
+	}
+	if !validTransport(*transport) {
+		fmt.Fprintln(os.Stderr, "error: -transport cuma boleh http, grpc, atau both")
+		os.Exit(1)
+	}
+
+	if (*transport == "grpc" || *transport == "both") && !explicit["grpc-port"] && interactive {
+		*grpcPort = prompt(reader, "Port gRPC [9090]: ", "9090")
+	}
+
 	if !explicit["db"] && interactive {
 		*db = prompt(reader, "Database [postgres|none]: ", "postgres")
 	}
@@ -125,6 +142,8 @@ func runNew(args []string) {
 		Module:      *module,
 		Port:        *port,
 		Database:    *db,
+		Transport:   *transport,
+		GRPCPort:    *grpcPort,
 	}
 
 	if err := generator.GenerateService(*out, data); err != nil {
@@ -160,7 +179,12 @@ func runNew(args []string) {
 		fmt.Println("  go mod tidy")
 	}
 	fmt.Println("  make run")
-	fmt.Printf("\nHealth check: curl http://localhost:%s/health\n", *port)
+	if *transport == "http" || *transport == "both" {
+		fmt.Printf("\nHealth check: curl http://localhost:%s/health\n", *port)
+	}
+	if *transport == "grpc" || *transport == "both" {
+		fmt.Printf("gRPC health service: localhost:%s\n", *grpcPort)
+	}
 }
 
 func prompt(r *bufio.Reader, label, fallback string) string {
@@ -201,4 +225,8 @@ func toPackageName(s string) string {
 
 func validDatabase(s string) bool {
 	return s == "postgres" || s == "none"
+}
+
+func validTransport(s string) bool {
+	return s == "http" || s == "grpc" || s == "both"
 }

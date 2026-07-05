@@ -22,10 +22,20 @@ type Data struct {
 	Module      string // go module path, misal github.com/kodelokal/user-service
 	Port        string
 	Database    string // postgres atau none
+	Transport   string // http, grpc, atau both
+	GRPCPort    string
 }
 
 func (d Data) HasPostgres() bool {
 	return d.Database == "" || d.Database == "postgres"
+}
+
+func (d Data) HasHTTP() bool {
+	return d.Transport == "" || d.Transport == "http" || d.Transport == "both"
+}
+
+func (d Data) HasGRPC() bool {
+	return d.Transport == "grpc" || d.Transport == "both"
 }
 
 // GenerateService membuat skeleton microservice baru di outDir.
@@ -48,6 +58,18 @@ func GenerateService(outDir string, data Data) error {
 		}
 		rel = strings.TrimSuffix(rel, ".tmpl")
 		if !data.HasPostgres() && isPostgresOnlyTemplate(rel) {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if !data.HasHTTP() && isHTTPOnlyTemplate(rel) {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if !data.HasGRPC() && isGRPCOnlyTemplate(rel) {
 			if d.IsDir() {
 				return fs.SkipDir
 			}
@@ -101,4 +123,12 @@ func isPostgresOnlyTemplate(rel string) bool {
 		}
 	}
 	return false
+}
+
+func isHTTPOnlyTemplate(rel string) bool {
+	return strings.HasPrefix(filepath.ToSlash(rel), "internal/delivery/http/")
+}
+
+func isGRPCOnlyTemplate(rel string) bool {
+	return strings.HasPrefix(filepath.ToSlash(rel), "internal/delivery/grpc/")
 }
