@@ -12,7 +12,7 @@ import (
 	"github.com/est57/kl-go-cli/internal/generator"
 )
 
-const version = "0.4.0"
+const version = "0.5.0"
 
 const usage = `kl-go-cli - scaffold Go microservice dengan clean architecture
 
