@@ -18,6 +18,7 @@ type ResourceData struct {
 	Type        string
 	Module      string
 	HasPostgres bool
+	RouterWired bool
 }
 
 func AddHTTPHandler(projectDir, name string) (*ResourceData, error) {
@@ -55,7 +56,70 @@ func AddHTTPHandler(projectDir, name string) (*ResourceData, error) {
 		}
 	}
 
+	data.RouterWired, err = wireHTTPRouter(projectDir, data)
+	if err != nil {
+		return nil, err
+	}
+
 	return data, nil
+}
+
+func wireHTTPRouter(projectDir string, data *ResourceData) (bool, error) {
+	path := filepath.Join(projectDir, "internal", "delivery", "http", "router.go")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+
+	content := string(b)
+	if strings.Contains(content, "New"+data.Type+"Handler") || strings.Contains(content, `v1.Group("/`+data.RouteName+`")`) {
+		return false, fmt.Errorf("router sudah punya wiring untuk %q", data.Name)
+	}
+
+	wiringAnchor := "\texampleHandler := handler.NewExampleHandler(exampleUsecase)\n"
+	routeAnchor := "\t\texamples.GET(\"/:id\", exampleHandler.GetByID)\n"
+	if !strings.Contains(content, wiringAnchor) || !strings.Contains(content, routeAnchor) {
+		return false, nil
+	}
+
+	wiring := renderRouterWiring(data)
+	routes := renderRouterRoutes(data)
+	content = strings.Replace(content, wiringAnchor, wiringAnchor+wiring, 1)
+	content = strings.Replace(content, routeAnchor, routeAnchor+routes, 1)
+
+	formatted, err := format.Source([]byte(content))
+	if err != nil {
+		return false, fmt.Errorf("format router.go: %w", err)
+	}
+	if err := os.WriteFile(path, formatted, 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func renderRouterWiring(data *ResourceData) string {
+	if data.HasPostgres {
+		return fmt.Sprintf(`
+	%sRepo := postgres.New%sRepository(db)
+	%sUsecase := usecase.New%sUsecase(%sRepo)
+	%sHandler := handler.New%sHandler(%sUsecase)
+`, data.Package, data.Type, data.Package, data.Type, data.Package, data.Package, data.Type, data.Package)
+	}
+	return fmt.Sprintf(`
+	%sRepo := postgres.NewInMemory%sRepository()
+	%sUsecase := usecase.New%sUsecase(%sRepo)
+	%sHandler := handler.New%sHandler(%sUsecase)
+`, data.Package, data.Type, data.Package, data.Type, data.Package, data.Package, data.Type, data.Package)
+}
+
+func renderRouterRoutes(data *ResourceData) string {
+	return fmt.Sprintf(`
+
+		%s := v1.Group("/%s")
+		%s.POST("", %sHandler.Create)
+		%s.GET("", %sHandler.List)
+		%s.GET("/:id", %sHandler.GetByID)
+`, data.RouteName, data.RouteName, data.RouteName, data.Package, data.RouteName, data.Package, data.RouteName, data.Package)
 }
 
 func renderNewFile(path, raw string, data *ResourceData) error {

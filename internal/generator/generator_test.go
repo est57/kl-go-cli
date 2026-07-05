@@ -186,6 +186,9 @@ func TestAddHTTPHandlerProducesCompilableFiles(t *testing.T) {
 	if resource.Type != "Customer" {
 		t.Fatalf("resource type = %q, want Customer", resource.Type)
 	}
+	if !resource.RouterWired {
+		t.Fatal("RouterWired = false, want true")
+	}
 
 	requiredFiles := []string{
 		"internal/domain/customer.go",
@@ -196,6 +199,21 @@ func TestAddHTTPHandlerProducesCompilableFiles(t *testing.T) {
 	for _, name := range requiredFiles {
 		if _, err := os.Stat(filepath.Join(outDir, name)); err != nil {
 			t.Fatalf("generated file %q missing: %v", name, err)
+		}
+	}
+
+	router := readGeneratedFile(t, outDir, "internal/delivery/http/router.go")
+	for _, want := range []string{
+		"customerRepo := postgres.NewInMemoryCustomerRepository()",
+		"customerUsecase := usecase.NewCustomerUsecase(customerRepo)",
+		"customerHandler := handler.NewCustomerHandler(customerUsecase)",
+		`customers := v1.Group("/customers")`,
+		`customers.POST("", customerHandler.Create)`,
+		`customers.GET("", customerHandler.List)`,
+		`customers.GET("/:id", customerHandler.GetByID)`,
+	} {
+		if !strings.Contains(router, want) {
+			t.Fatalf("router.go missing %q:\n%s", want, router)
 		}
 	}
 

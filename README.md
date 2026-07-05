@@ -151,9 +151,9 @@ internal/repository/postgres/customer_repo.go
 internal/delivery/http/handler/customer_handler.go
 ```
 
-Setelah file dibuat, CLI akan menampilkan snippet wiring untuk ditambahkan ke `internal/delivery/http/router.go`.
+Setelah file dibuat, CLI akan mencoba update `internal/delivery/http/router.go` otomatis.
 
-Catatan: untuk saat ini wiring router masih manual agar `kl-go-cli` tidak menimpa perubahan custom di router project kamu.
+Kalau router sudah banyak berubah dan pola scaffold tidak dikenali, CLI akan menampilkan snippet wiring manual sebagai fallback agar perubahan custom project tetap aman.
 
 ## Kapan Pakai Flag Tertentu?
 
@@ -218,6 +218,6 @@ Kurang cocok untuk:
 
 ## Roadmap
 
-- [ ] Auto-wiring route untuk `kl-go-cli add handler <name>`
+- [ ] Migration otomatis untuk `kl-go-cli add handler <name>` saat `-db=postgres`
 - [ ] Generate custom gRPC service/proto untuk resource baru
 - [ ] Template auth/JWT opsional

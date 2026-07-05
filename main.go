@@ -80,6 +80,11 @@ func runAdd(args []string) {
 	}
 
 	fmt.Printf("\nHandler %q berhasil ditambahkan.\n", resourceName)
+	if data.RouterWired {
+		fmt.Println("Router internal/delivery/http/router.go berhasil di-update otomatis.")
+		return
+	}
+
 	fmt.Println("\nTambahkan wiring ini di internal/delivery/http/router.go:")
 	if data.HasPostgres {
 		fmt.Printf(`  %sRepo := postgres.New%sRepository(db)
