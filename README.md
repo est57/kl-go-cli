@@ -1,10 +1,28 @@
 # kl-go-cli
 
-CLI ringan untuk generate Go microservice siap jalan dengan clean architecture, Gin, optional Postgres, migration, seed, dan gRPC.
+`kl-go-cli` adalah alat baris perintah untuk membuat struktur awal layanan backend menggunakan Go.
 
-`kl-go-cli` cocok untuk backend developer atau tim yang sering membuat service baru dan ingin struktur project yang konsisten tanpa copy-paste dari service lama.
+Project yang dibuat mengikuti pola clean architecture dan dapat menggunakan REST API, gRPC, PostgreSQL, migration, dan seed data sesuai pilihan saat membuat service.
 
-## Quickstart 3 Menit
+## Tujuan Project
+
+Project ini dibuat untuk mempercepat pembuatan service backend baru. Dengan satu perintah, pengguna mendapatkan struktur project Go yang sudah rapi dan siap dikembangkan.
+
+`kl-go-cli` bukan framework runtime. Hasil dari perintah ini adalah project Go biasa yang dapat diedit, diuji, dikomit, dan dideploy seperti project Go lainnya.
+
+## Fitur Utama
+
+- Membuat struktur project Go dengan pola clean architecture.
+- Membuat REST API menggunakan Gin.
+- Mendukung gRPC health service.
+- Mendukung PostgreSQL dengan Gorm.
+- Menyediakan migration runner bawaan.
+- Menyediakan seed command untuk data awal pengembangan lokal.
+- Menyediakan Dockerfile dan docker-compose.
+- Menyediakan Makefile untuk perintah umum.
+- Dapat menambahkan skeleton HTTP handler baru ke service yang sudah dibuat.
+
+## Instalasi
 
 Install versi terbaru:
 
@@ -12,7 +30,23 @@ Install versi terbaru:
 go install github.com/est57/kl-go-cli@latest
 ```
 
-Generate service:
+Install versi tertentu:
+
+```bash
+go install github.com/est57/kl-go-cli@v0.6.0
+```
+
+Pastikan folder `$(go env GOPATH)/bin` sudah ada di `PATH`.
+
+Periksa versi:
+
+```bash
+kl-go-cli -v
+```
+
+## Quickstart
+
+Buat service baru:
 
 ```bash
 kl-go-cli new payment-service -module=github.com/acme/payment-service -tidy
@@ -20,13 +54,13 @@ cd payment-service
 make run
 ```
 
-Cek service:
+Periksa health check:
 
 ```bash
 curl http://localhost:8080/health
 ```
 
-Untuk service dengan Postgres local:
+Jika service menggunakan PostgreSQL, jalankan database dan migration terlebih dahulu:
 
 ```bash
 docker compose up -d db
@@ -35,57 +69,40 @@ make seed
 make run
 ```
 
-## Untuk Apa?
+## Contoh Penggunaan
 
-Project ini adalah scaffolder, bukan framework runtime. Output-nya adalah project Go biasa yang bisa diedit, dipindahkan, dicommit, dan dideploy seperti service Go normal.
-
-Yang dibuat otomatis:
-
-- struktur clean architecture
-- REST API dengan Gin
-- optional gRPC health server
-- optional Postgres + Gorm repository
-- SQL migration runner bawaan
-- seed command untuk local development
-- env config loader
-- Dockerfile dan docker-compose
-- Makefile untuk command umum
-- command untuk menambah skeleton HTTP handler baru
-
-## Contoh Command
-
-REST API + Postgres, cocok untuk service backend standar:
+Membuat REST API dengan PostgreSQL:
 
 ```bash
 kl-go-cli new order-service -module=github.com/acme/order-service -db=postgres -tidy
 ```
 
-REST API ringan tanpa database:
+Membuat REST API tanpa database:
 
 ```bash
 kl-go-cli new webhook-service -db=none -tidy
 ```
 
-gRPC-only service:
+Membuat service gRPC tanpa database:
 
 ```bash
 kl-go-cli new inventory-rpc -transport=grpc -grpc-port=9090 -db=none -tidy
 ```
 
-HTTP + gRPC dalam satu service:
+Membuat service yang menjalankan HTTP dan gRPC dalam satu binary:
 
 ```bash
 kl-go-cli new payment-service -transport=both -port=8080 -grpc-port=9090 -db=postgres -tidy
 ```
 
-Tambah skeleton resource HTTP di service yang sudah dibuat:
+Menambahkan HTTP handler baru ke service yang sudah dibuat:
 
 ```bash
 cd payment-service
 kl-go-cli add handler customer
 ```
 
-## Contoh Terminal Demo
+## Contoh Output Perintah
 
 ```bash
 $ kl-go-cli new payment-service -module=github.com/acme/payment-service -transport=both -db=postgres -tidy
@@ -103,9 +120,9 @@ Health check: curl http://localhost:8080/health
 gRPC health service: localhost:9090
 ```
 
-## Struktur Output
+## Struktur Project yang Dibuat
 
-Contoh struktur untuk `-transport=both -db=postgres`:
+Contoh struktur untuk service dengan `-transport=both -db=postgres`:
 
 ```text
 payment-service/
@@ -130,19 +147,19 @@ payment-service/
 └── go.mod
 ```
 
-Untuk `-db=none`, folder database, migration, migrate command, dan seed command tidak dibuat.
+Jika menggunakan `-db=none`, folder database, migration, migrate command, dan seed command tidak dibuat.
 
-Untuk `-transport=grpc`, folder HTTP tidak dibuat.
+Jika menggunakan `-transport=grpc`, folder HTTP tidak dibuat.
 
-## Menambah Handler Baru
+## Menambahkan Handler Baru
 
-Jalankan command ini dari root project hasil generate:
+Jalankan perintah ini dari root project hasil generate:
 
 ```bash
 kl-go-cli add handler customer
 ```
 
-Command ini membuat file:
+Perintah tersebut membuat file berikut:
 
 ```text
 internal/domain/customer.go
@@ -151,36 +168,47 @@ internal/repository/postgres/customer_repo.go
 internal/delivery/http/handler/customer_handler.go
 ```
 
-Setelah file dibuat, CLI akan mencoba update `internal/delivery/http/router.go` otomatis.
+CLI akan mencoba memperbarui `internal/delivery/http/router.go` secara otomatis.
 
-Kalau router sudah banyak berubah dan pola scaffold tidak dikenali, CLI akan menampilkan snippet wiring manual sebagai fallback agar perubahan custom project tetap aman.
+Jika struktur router sudah banyak berubah dan tidak lagi mengikuti pola awal, CLI tidak akan memaksa perubahan. Dalam kondisi tersebut, CLI akan menampilkan snippet wiring yang dapat ditambahkan secara manual.
 
-## Kapan Pakai Flag Tertentu?
+Untuk project PostgreSQL, perintah ini juga membuat migration placeholder:
 
-| Flag | Pakai saat | Catatan |
+```text
+migrations/000002_create_customers.up.sql
+migrations/000002_create_customers.down.sql
+```
+
+Isi migration hanya berupa komentar `TODO`. Schema tabel tetap harus disesuaikan dengan kebutuhan domain sebelum menjalankan:
+
+```bash
+make migrate-up
+```
+
+## Pilihan Database dan Transport
+
+| Opsi | Kapan digunakan | Keterangan |
 |---|---|---|
-| `-db=postgres` | Service butuh persistence dari awal | Default. Include Gorm, migration, seed, dan docker-compose Postgres. |
-| `-db=none` | Service ringan, worker, webhook, proxy, atau belum butuh DB | Output lebih kecil dan dependency lebih sedikit. |
-| `-transport=http` | Service REST API umum | Default. Include Gin router, handler, middleware. |
-| `-transport=grpc` | Service internal antar backend | Include gRPC health service tanpa perlu `protoc`. |
-| `-transport=both` | Service butuh REST API publik dan gRPC internal | Menjalankan HTTP + gRPC dalam satu binary. |
-| `-tidy` | Ingin dependency langsung siap | Menjalankan `go mod tidy` setelah generate. |
-| `-git` | Ingin output langsung jadi repo baru | Menjalankan `git init`, `git add`, dan initial commit. |
+| `-db=postgres` | Service membutuhkan database sejak awal. | Membuat konfigurasi PostgreSQL, repository Gorm, migration, seed command, dan docker-compose untuk database. |
+| `-db=none` | Service belum membutuhkan database. | Output lebih sederhana dan dependency lebih sedikit. |
+| `-transport=http` | Service menyediakan REST API. | Membuat router, handler, dan middleware HTTP menggunakan Gin. |
+| `-transport=grpc` | Service digunakan untuk komunikasi internal antar-service. | Membuat gRPC server dengan health service. |
+| `-transport=both` | Service membutuhkan REST API dan gRPC sekaligus. | Menjalankan HTTP dan gRPC dalam satu binary. |
 
-## Semua Flag
+## Daftar Flag
 
 | Flag | Fungsi | Default |
 |---|---|---|
-| `-module` | Go module path | `github.com/kodelokal/<nama-service>` |
-| `-port` | Port default HTTP service | `8080` |
-| `-transport` | Transport scaffold: `http`, `grpc`, atau `both` | `http` |
-| `-grpc-port` | Port default gRPC service | `9090` |
-| `-db` | Database scaffold: `postgres` atau `none` | `postgres` |
-| `-out` | Folder output | sama dengan nama service |
-| `-tidy` | Otomatis menjalankan `go mod tidy` | off |
-| `-git` | Otomatis `git init` + commit pertama | off |
+| `-module` | Go module path. | `github.com/kodelokal/<nama-service>` |
+| `-port` | Port HTTP. | `8080` |
+| `-transport` | Jenis transport: `http`, `grpc`, atau `both`. | `http` |
+| `-grpc-port` | Port gRPC. | `9090` |
+| `-db` | Jenis database: `postgres` atau `none`. | `postgres` |
+| `-out` | Folder output. | Sama dengan nama service. |
+| `-tidy` | Menjalankan `go mod tidy` setelah project dibuat. | Tidak aktif. |
+| `-git` | Menjalankan `git init` dan membuat commit pertama. | Tidak aktif. |
 
-## Install Manual
+## Build Manual dari Source
 
 ```bash
 git clone https://github.com/est57/kl-go-cli.git
@@ -188,13 +216,7 @@ cd kl-go-cli
 go build -o kl-go-cli .
 ```
 
-Cek versi:
-
-```bash
-kl-go-cli -v
-```
-
-Bantuan:
+Periksa bantuan command:
 
 ```bash
 kl-go-cli -h
@@ -202,22 +224,22 @@ kl-go-cli -h
 
 ## Target Pengguna
 
-`kl-go-cli` paling berguna untuk:
+Project ini cocok untuk:
 
-- Go backend developer
-- tim microservice
-- project internal tools
-- service REST/gRPC kecil sampai menengah
-- tim yang ingin struktur service konsisten
+- developer backend Go;
+- tim yang sering membuat microservice baru;
+- project internal tools;
+- service REST atau gRPC skala kecil sampai menengah;
+- tim yang ingin struktur project backend lebih konsisten.
 
-Kurang cocok untuk:
+Project ini mungkin kurang cocok untuk:
 
-- aplikasi sangat kecil yang cukup satu file `main.go`
-- project yang sudah punya framework internal sendiri
-- user yang mencari full-stack framework seperti Laravel, Rails, atau NestJS
+- aplikasi yang cukup dibuat dalam satu file `main.go`;
+- tim yang sudah memiliki template internal sendiri;
+- pengguna yang mencari framework lengkap seperti Laravel, Rails, atau NestJS.
 
 ## Roadmap
 
-- [ ] Migration otomatis untuk `kl-go-cli add handler <name>` saat `-db=postgres`
-- [ ] Generate custom gRPC service/proto untuk resource baru
-- [ ] Template auth/JWT opsional
+- [ ] Field generator untuk `kl-go-cli add handler <name>`.
+- [ ] Generate custom gRPC service/proto untuk resource baru.
+- [ ] Template auth/JWT opsional.

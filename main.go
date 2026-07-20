@@ -80,6 +80,9 @@ func runAdd(args []string) {
 	}
 
 	fmt.Printf("\nHandler %q berhasil ditambahkan.\n", resourceName)
+	if data.MigrationCreated {
+		fmt.Println("Placeholder migration berhasil dibuat di migrations/. Edit schema sebelum menjalankan make migrate-up.")
+	}
 	if data.RouterWired {
 		fmt.Println("Router internal/delivery/http/router.go berhasil di-update otomatis.")
 		return

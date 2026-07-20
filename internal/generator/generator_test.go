@@ -221,6 +221,46 @@ func TestAddHTTPHandlerProducesCompilableFiles(t *testing.T) {
 	runGeneratedCommand(t, outDir, "go", "test", "./...")
 }
 
+func TestAddHTTPHandlerCreatesPostgresMigrationPlaceholder(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "postgres-handler-service")
+	data := Data{
+		ServiceName: "postgres-handler-service",
+		PackageName: "postgres_handler_service",
+		Module:      "github.com/example/postgres-handler-service",
+		Port:        "8085",
+		Database:    "postgres",
+		Transport:   "http",
+	}
+
+	if err := GenerateService(outDir, data); err != nil {
+		t.Fatalf("GenerateService() error = %v", err)
+	}
+	resource, err := AddHTTPHandler(outDir, "customer")
+	if err != nil {
+		t.Fatalf("AddHTTPHandler() error = %v", err)
+	}
+	if !resource.MigrationCreated {
+		t.Fatal("MigrationCreated = false, want true")
+	}
+
+	up := readGeneratedFile(t, outDir, "migrations/000002_create_customers.up.sql")
+	down := readGeneratedFile(t, outDir, "migrations/000002_create_customers.down.sql")
+	for _, got := range []string{up, down} {
+		if !strings.Contains(got, "TODO:") {
+			t.Fatalf("migration missing TODO marker:\n%s", got)
+		}
+	}
+	if strings.Contains(up, "\nCREATE TABLE") {
+		t.Fatalf("up migration contains active CREATE TABLE, want commented placeholder:\n%s", up)
+	}
+	if strings.Contains(down, "\nDROP TABLE") {
+		t.Fatalf("down migration contains active DROP TABLE, want commented placeholder:\n%s", down)
+	}
+
+	runGeneratedCommand(t, outDir, "go", "mod", "tidy")
+	runGeneratedCommand(t, outDir, "go", "test", "./...")
+}
+
 func TestGenerateServiceRefusesExistingDirectory(t *testing.T) {
 	outDir := t.TempDir()
 	err := GenerateService(outDir, Data{

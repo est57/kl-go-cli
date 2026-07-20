@@ -12,13 +12,14 @@ import (
 )
 
 type ResourceData struct {
-	Name        string
-	RouteName   string
-	Package     string
-	Type        string
-	Module      string
-	HasPostgres bool
-	RouterWired bool
+	Name             string
+	RouteName        string
+	Package          string
+	Type             string
+	Module           string
+	HasPostgres      bool
+	RouterWired      bool
+	MigrationCreated bool
 }
 
 func AddHTTPHandler(projectDir, name string) (*ResourceData, error) {
@@ -61,7 +62,79 @@ func AddHTTPHandler(projectDir, name string) (*ResourceData, error) {
 		return nil, err
 	}
 
+	if data.HasPostgres {
+		data.MigrationCreated, err = createPlaceholderMigration(projectDir, data)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return data, nil
+}
+
+func createPlaceholderMigration(projectDir string, data *ResourceData) (bool, error) {
+	migrationsDir := filepath.Join(projectDir, "migrations")
+	if _, err := os.Stat(migrationsDir); err != nil {
+		return false, nil
+	}
+
+	next, err := nextMigrationVersion(migrationsDir)
+	if err != nil {
+		return false, err
+	}
+
+	base := fmt.Sprintf("%06d_create_%s", next, data.RouteName)
+	upPath := filepath.Join(migrationsDir, base+".up.sql")
+	downPath := filepath.Join(migrationsDir, base+".down.sql")
+	up := fmt.Sprintf(`-- TODO: define %s table schema.
+-- Example starting point:
+--
+-- CREATE TABLE IF NOT EXISTS %s (
+--     id UUID PRIMARY KEY,
+--     name TEXT NOT NULL,
+--     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- );
+`, data.RouteName, data.RouteName)
+	down := fmt.Sprintf(`-- TODO: define rollback for %s table schema.
+-- Example:
+--
+-- DROP TABLE IF EXISTS %s;
+`, data.RouteName, data.RouteName)
+
+	if err := os.WriteFile(upPath, []byte(up), 0o644); err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(downPath, []byte(down), 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func nextMigrationVersion(migrationsDir string) (int, error) {
+	entries, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		return 0, err
+	}
+
+	re := regexp.MustCompile(`^(\d+)_.*\.(up|down)\.sql$`)
+	maxVersion := 0
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		matches := re.FindStringSubmatch(entry.Name())
+		if len(matches) != 3 {
+			continue
+		}
+		version := 0
+		for _, r := range matches[1] {
+			version = version*10 + int(r-'0')
+		}
+		if version > maxVersion {
+			maxVersion = version
+		}
+	}
+	return maxVersion + 1, nil
 }
 
 func wireHTTPRouter(projectDir string, data *ResourceData) (bool, error) {
